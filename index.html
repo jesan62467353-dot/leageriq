@@ -628,42 +628,41 @@ async function forecastSearch() {
     if (!q) return;
 
     const btn = document.getElementById('forecastSearch');
-    btn.innerHTML = '<span class="loader"></span> 실시간 구글 검색 중...';
+    btn.innerHTML = '<span class="loader"></span> 실제 전망 및 뉴스 수집 중...';
     btn.disabled = true;
 
     document.getElementById('newsTitle').textContent = `${q} 관련 실시간 구글 검색 뉴스`;
     document.getElementById('growthSource').textContent = "실시간 구글 검색 웹 그라운딩 반영";
-    document.getElementById('newsList').innerHTML = '<div class="news"><b>웹 검색 수행 중…</b><small>Google 실시간 검색 도구를 통해 최신 언론 보도를 수집하고 있습니다.</small></div>';
+    document.getElementById('newsList').innerHTML = '<div class="news"><b>웹 검색 수행 중…</b><small>최신 언론 보도를 실시간으로 가져오는 중입니다.</small></div>';
 
-    // [요구사항 3] 실시간 구글 검색 기반 프롬프트
     const forecastPrompt = `
-    Google Search를 통해 '${q}' 기업의 가장 최근 실제 뉴스 헤드라인과 시장 이슈를 실시간 검색하세요.
-    검색된 실제 팩트를 기반으로 아래 JSON 구조를 엄격하게 작성하세요.
+    당신은 금융 데이터 분석가입니다. Google Search 도구를 사용하여 대한민국 상장사 '${q}'의 최신 실제 기사와 경영 실적을 검색하세요.
+    반드시 검색된 실제 팩트만을 바탕으로 아래 JSON 구조로만 응답하세요.
+
     {
-      "chartHeights": [40, 52, 60, 72, 80, 88],
+      "chartHeights": [45, 55, 62, 70, 82, 89],
       "chartYears": ["2022", "2023", "2024", "2025", "2026(E)", "2027(E)"],
       "news": [
-        {"title": "실제 검색된 최근 뉴스 헤드라인 1", "source": "실제 언론사명", "date": "발행일자", "type": "호재"},
-        {"title": "실제 검색된 최근 뉴스 헤드라인 2", "source": "실제 언론사명", "date": "발행일자", "type": "성장"},
-        {"title": "실제 검색된 최근 뉴스 헤드라인 3", "source": "실제 언론사명", "date": "발행일자", "type": "리스크"}
+        {"title": "'${q}' 관련 실제 최신 뉴스 헤드라인 1", "source": "실제 언론사", "date": "발행시기", "type": "호재"},
+        {"title": "'${q}' 관련 실제 최신 뉴스 헤드라인 2", "source": "실제 언론사", "date": "발행시기", "type": "성장"},
+        {"title": "'${q}' 관련 실제 최근 리스크 뉴스 3", "source": "실제 언론사", "date": "발행시기", "type": "리스크"}
       ],
       "variables": [
-        {"factor": "핵심 사업 모멘텀", "signal": "+", "impact": "높음", "reason": "실제 검색된 핵심 근거 요약"},
-        {"factor": "글로벌 공급망/수출", "signal": "+", "impact": "중간", "reason": "해외 실적 및 환율 요인"},
-        {"factor": "원가 및 금리 부담", "signal": "±", "impact": "중간", "reason": "거시경제 영향 분석"}
+        {"factor": "'${q}' 주력 사업 실적 모멘텀", "signal": "+", "impact": "높음", "reason": "실제 사업 수주 및 실적 개선 근거"},
+        {"factor": "글로벌 환율 및 거시 변수", "signal": "±", "impact": "중간", "reason": "수출 및 원자재 환율 영향"},
+        {"factor": "설비 투자 및 원가 부담", "signal": "-", "impact": "중간", "reason": "최근 투자 지출 및 마진율 현황"}
       ]
     }
     `;
 
-    // 3번째 인자에 true를 전달해 useSearch(Google Search Grounding) 활성화
     let data = await callGemini(forecastPrompt, true, true);
 
     if (!data || !data.chartHeights) {
         data = {
-            chartHeights: [38, 48, 58, 68, 79, 86],
+            chartHeights: [40, 50, 60, 72, 80, 88],
             chartYears: ["2022", "2023", "2024", "2025", "2026(E)", "2027(E)"],
             news: [
-                { title: `${q}, 핵심 사업 실적 개선 및 글로벌 수주 확대 모멘텀`, source: "주요 경제지", date: "최근 보도", type: "호재" },
+                { title: `${q}, 주력 사업 실적 개선 및 글로벌 수주 확대 모멘텀`, source: "주요 경제지", date: "최근 보도", type: "호재" },
                 { title: `${q}, 차세대 고부가가치 제품군 양산 본격화`, source: "산업 보도", date: "최근 보도", type: "성장" },
                 { title: `${q}, 글로벌 거시 변동성에 따른 환율 리스크 점검`, source: "증권가 리포트", date: "최근 보도", type: "중립" }
             ],
@@ -688,7 +687,7 @@ async function forecastSearch() {
         axisEl.innerHTML = `<span>${data.chartYears[0]}</span><span>${data.chartYears[3]}</span><span>${data.chartYears[5]}</span>`;
     }
 
-    // 2. 관련 뉴스 목록 (실시간 검색 결과 반영)
+    // 2. 관련 뉴스 목록
     const newsHtml = data.news.map(n => `
         <div class="news">
             <b>${n.title}</b>
@@ -820,7 +819,7 @@ function recalc() {
         regEl.style.borderColor = color;
     }
     if (korTitleEl) {
-        korTitleEl.textContent = title;
+        korTitleEl.textContent = title; // 한글 제목 반영
     }
     if (txtEl) {
         txtEl.innerHTML = `
@@ -837,7 +836,6 @@ function recalc() {
     if (statusEl) {
         statusEl.innerHTML = `<span style="color:${color}; font-weight:700;">● ${title}</span> (${code})`;
     }
-}
 
 // ====================================================
 // 7. [요구사항 4] 경제 MBTI 정밀 8문항 & 16개 유형 엔진
@@ -1067,12 +1065,11 @@ function recalc() {
         el.oninput = recalc;
         el.onchange = recalc;
     }
-
+});
 // 버튼 클릭 이벤트 및 초기 실행
 const recalcBtn = document.getElementById('recalc');
 if (recalcBtn) recalcBtn.onclick = recalc;
 recalc();
-});
 </script>
 </body>
 </html>
