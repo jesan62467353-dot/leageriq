@@ -710,35 +710,104 @@ function recalc() {
     const g = parseFloat(document.getElementById('gdp').textContent) || 3.7;
     const m = parseFloat(document.getElementById('m2').textContent) || 5.8;
 
+    // 상단 카드 실시간 값 반영
     document.getElementById('rate').value = r.toFixed(2);
     document.getElementById('inflation').value = i.toFixed(1);
     document.getElementById('fx').value = f.toFixed(2);
 
-    let regime = 'NEUTRAL';
-    let txt = '성장·물가·유동성 신호가 혼재된 중립 국면';
-    if (g >= 3 && m >= 4.5 && i <= 3.0) {
-        regime = 'EXPANSION';
-        txt = '성장과 유동성이 견조하고 물가 부담이 상대적으로 낮은 확장 국면';
-    } else if (i > 3.5 && r >= 3.5) {
-        regime = 'RESTRICTIVE';
-        txt = '물가와 금리 부담이 함께 높아 금융여건이 긴축적인 국면';
-    } else if (g < 1.5 && m < 3) {
-        regime = 'SLOWDOWN';
-        txt = '성장과 통화 유동성이 동시에 둔화되는 수축 국면';
+    let code = "NEUTRAL";
+    let title = "전환기 중립 국면";
+    let desc = "성장, 물가, 유동성 지표가 서로 상쇄되어 뚜렷한 추세가 형성되지 않은 혼조 국면입니다.";
+    let color = "#65e9f5"; // 기본 시안
+    let favor = "올웨더 분산 포트폴리오, 우량 배당주";
+    let caution = "단일 테마 집중 투자, 고레버리지 파생 상품";
+
+    // 1. 극단적 비상 국면 (외환위기 / 초인플레이션)
+    if (f >= 1450 || i >= 5.0) {
+        code = "HYPER_CRISIS";
+        title = "외환위기 경보 / 초인플레이션 비상 국면";
+        desc = `원/달러 환율(${f.toLocaleString()}원) 또는 물가상승률(${i}%)이 임계치를 초과하여 수입 물가 급등 및 자본 유출 위험이 최고조에 달한 위기 구간입니다.`;
+        color = "#ff4d61"; // 강한 레드
+        favor = "달러 현금, 금(Gold), 미국 단기 국채 ETF";
+        caution = "원화 자산 전반, 원자재 수입 의존주, 부채비율 200% 초과 기업";
+    }
+    // 2. 스태그플레이션 (성장률 급락 + 물가 고공행진)
+    else if (g < 2.0 && i >= 3.5) {
+        code = "STAGFLATION";
+        title = "스태그플레이션 (불황 속 물가 상승)";
+        desc = `실질 GDP 성장률(${g}%)이 둔화된 상태에서 물가(${i}%)가 꺾이지 않아 통화정책 대응이 극도로 어려운 복합 위기 국면입니다.`;
+        color = "#ff7382"; // 레드
+        favor = "원자재(원유·구리), 단기물 채권, 필수소비재/인프라 가치주";
+        caution = "미래 이익 기반의 고PER 성장주, 일반 소비재";
+    }
+    // 3. 경기 과열 국면 (고성장 + 인플레 압력)
+    else if (g >= 3.0 && i > 3.0) {
+        code = "OVERHEATING";
+        title = "경기 과열 / 인플레이션 억제 국면";
+        desc = `실질 경제성장률(${g}%)은 탄탄하나 수요 견인 인플레이션(${i}%)으로 인해 중앙은행의 긴축 압박이 지속되는 활황 후기 국면입니다.`;
+        color = "#f59e0b"; // 옐로우
+        favor = "은행/보험 등 금융주, 원자재 ETF, 금리 연동형 채권";
+        caution = "장기 국채, 밸류에이션 부담이 높은 대형 기술주";
+    }
+    // 4. 고금리 긴축 압박 (디레버리징)
+    else if (r >= 3.5 && i <= 3.0) {
+        code = "RESTRICTIVE";
+        title = "긴축 억제 / 밸류에이션 재조정 국면";
+        desc = `물가는 점차 안정되고 있으나 높은 기준금리(${r}%)로 인해 시중 자금 조달 비용이 증가하고 기업 투자가 억제되는 디레버리징 구간입니다.`;
+        color = "#e8c46a"; // 앰버
+        favor = "단기 파킹형 ETF(CD금리/KOFR), 현금 흐름 우수 기업, 중기 국채";
+        caution = "설비투자(CAPEX) 비중이 큰 한계 제조업, 부동산 PF 관련 자산";
+    }
+    // 5. 골디락스 (최상의 경제 조합: 고성장 + 저물가)
+    else if (g >= 3.0 && i <= 2.5 && f < 1350) {
+        code = "GOLDILOCKS";
+        title = "골디락스 (이상적인 유동성 확장 국면)";
+        desc = `견조한 경제성장(${g}%)과 안정적인 물가(${i}%), 외환 시장 안정(${f.toLocaleString()}원)이 맞물려 위험자산 선호 심리가 극대화되는 최적의 환경입니다.`;
+        color = "#53d9a5"; // 그린
+        favor = "빅테크 및 혁신 성장주(AI·반도체), 2차전지, 주식형 ETF 전반";
+        caution = "현금성 파킹 자산, 마이너스 실질수익률을 내는 예금";
+    }
+    // 6. 금융완화 초기 반등 (저금리 + 유동성 공급)
+    else if (r < 3.0 && m >= 6.0) {
+        code = "EARLY_RECOVERY";
+        title = "유동성 주도형 경기 회복 국면";
+        desc = `기준금리 인하 기조와 시중 통화량(M2 ${m}%) 확대에 힘입어 자산 시장의 밸류에이션 리레이팅이 본격화되는 초기 확장 국면입니다.`;
+        color = "#8d89ff"; // 바이올렛
+        favor = "경기민감 대형주(반도체, 철강, 화학), 중소형 테크 성장주, 리츠";
+        caution = "초단기 채권, 금리 상승 수혜 금융주";
+    }
+    // 7. 디플레이션 / 경기 침체 (저성장 + 저물가)
+    else if (g < 1.5 && i < 2.0) {
+        code = "DEFLATION_RECESSION";
+        title = "디플레이션 수축 / 경기 침체 국면";
+        desc = `성장률(${g}%)과 물가상승률(${i}%)이 동시에 바닥을 치며 민간 소비와 기업 투자가 위축되는 전형적인 경기 침체 구간입니다.`;
+        color = "#7f929d"; // 뮤트 그레이
+        favor = "미국 장기 국채, 안전자산(금), 현금 비중 확대";
+        caution = "원자재, 유가 연동 상품, 시클리컬(경기민감) 주식";
     }
 
-    document.getElementById('regime').textContent = regime;
-    document.getElementById('regimeText').textContent = txt;
-}
-['rate2', 'inflation2', 'fx2'].forEach(id => {
-    const el = document.getElementById(id);
-    if (el) {
-        el.oninput = recalc;   // 숫자를 입력하는 순간 즉각 실시간 반영
-        el.onchange = recalc;
+    // 화면 갱신
+    const regEl = document.getElementById('regime');
+    const txtEl = document.getElementById('regimeText');
+    const statusEl = document.getElementById('macroStatus');
+
+    if (regEl) {
+        regEl.textContent = code;
+        regEl.style.color = color;
     }
-});
-document.getElementById('recalc').onclick = recalc;
-recalc();
+    if (txtEl) {
+        txtEl.innerHTML = `<b>${title}</b><br><span style="font-size:11px; color:#8fa3b0;">${desc}</span>`;
+    }
+    if (statusEl) {
+        statusEl.innerHTML = `
+            <span style="color:${color}; font-weight:700;">● ${title}</span><br>
+            <span style="font-size:11px; line-height:1.6; display:block; margin-top:4px;">
+                <b>👍 추천 자산:</b> ${favor}<br>
+                <b>⚠️ 유의 자산:</b> ${caution}
+            </span>
+        `;
+    }
+}
 
 // ====================================================
 // 7. [요구사항 4] 경제 MBTI 정밀 8문항 & 16개 유형 엔진
