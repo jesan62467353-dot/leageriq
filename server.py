@@ -62,8 +62,8 @@ def get_company_dart():
     target_data = None
     target_year = ""
     
-    for yr in ["2024", "2023"]:
-        for reprt in ["11011", "11014"]:
+    for yr in ["2025", "2024"]:
+        for reprt in ["11011", "11014", "11012"]: 
             url = "https://opendart.fss.or.kr/api/fnlttSinglAcnt.json"
             params = {
                 "crtfc_key": DART_API_KEY,
