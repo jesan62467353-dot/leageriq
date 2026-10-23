@@ -66,7 +66,16 @@ nav button:hover,nav button.active{color:#fff;background:#10212b}
 .news-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:14px}.news{padding:13px 0;border-bottom:1px solid #162732}.news:last-child{border-bottom:0}.news b{font-size:13px}.news small{display:block;color:var(--muted);font-size:11px;margin-top:6px}
 .forecast-top{display:grid;grid-template-columns:1.2fr .8fr;gap:14px}.chart{height:255px;display:flex;align-items:end;gap:9px;border-bottom:1px solid #28414e;padding:12px 8px 10px}.barcol{flex:1;height:100%;display:flex;align-items:flex-end}.barcol i{width:100%;border-radius:6px 6px 0 0;background:linear-gradient(180deg,var(--violet),var(--cyan));opacity:.8}.axis{display:flex;justify-content:space-between;color:var(--muted);font-size:9px;margin-top:7px}
 .macro-values{display:grid;grid-template-columns:repeat(5,1fr);gap:9px}.mcard{border:1px solid var(--line);border-radius:14px;padding:15px;background:linear-gradient(145deg,#0b1720,#071019);min-height:158px}.mcard .label{display:flex;justify-content:space-between;color:var(--muted);font-size:10px}.auto,.manual{font-size:8px;border-radius:99px;padding:3px 6px}.auto{color:var(--cyan);border:1px solid #326d79}.manual{color:var(--amber);border:1px solid #665731}.mvalue{font-size:26px;font-weight:850;margin:17px 0 5px}.mnote{color:#6d7f89;font-size:8px}.mcard input{width:95px;background:transparent;border:0;border-bottom:1px solid #2a404c;outline:0;color:#fff;font-size:26px;font-weight:850;padding:0}
-.macro-main{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;margin-top:14px}.macro-orb{min-height:330px;display:grid;place-items:center;position:relative}.orb{width:215px;height:215px;border-radius:50%;border:1px solid #31505d;position:relative;box-shadow:0 0 90px #65e9f50a inset}.orb:before,.orb:after{content:"";position:absolute;border:1px solid #294451;border-radius:50%;inset:34px}.orb:after{inset:68px}.node{position:absolute;background:#07131b;border:1px solid var(--line);border-radius:8px;padding:7px 8px;color:#bfcbd0;font-size:10px}.n1{top:-1px;left:50%;transform:translateX(-50%)}.n2{right:-4px;top:49%}.n3{bottom:-2px;left:50%;transform:translateX(-50%)}.n4{left:-4px;top:49%}.center{position:absolute;inset:0;display:grid;place-items:center;text-align:center}.center b{font-size:20px;letter-spacing:.03em}.center span{color:var(--muted);font-size:10px;line-height:1.5}
+.macro-main{display:grid;grid-template-columns:1.15fr .85fr;gap:14px;margin-top:14px}
+.macro-orb{min-height:380px;display:flex;flex-direction:column;align-items:center;justify-content:center;position:relative;padding:26px 18px}
+.orb{width:240px;height:240px;border-radius:50%;border:1px solid rgba(101,233,245,.25);position:relative;box-shadow:0 0 60px rgba(101,233,245,.06) inset,0 0 30px rgba(0,0,0,.5);display:flex;align-items:center;justify-content:center}
+.orb:before{content:"";position:absolute;inset:20px;border-radius:50%;border:1px dashed rgba(101,233,245,.18)}
+.node{position:absolute;background:#07131b;border:1px solid var(--line);border-radius:8px;padding:6px 9px;color:#bfcbd0;font-size:10px;font-weight:600}
+.n1{top:-10px;left:50%;transform:translateX(-50%)}.n2{right:-12px;top:50%;transform:translateY(-50%)}.n3{bottom:-10px;left:50%;transform:translateX(-50%)}.n4{left:-12px;top:50%;transform:translateY(-50%)}
+.center{position:relative;z-index:2;text-align:center;padding:0 12px;max-width:200px}
+.center b#regime{display:inline-block;font-size:12px;letter-spacing:.12em;font-weight:850;padding:4px 10px;border-radius:99px;background:rgba(255,255,255,.06);border:1px solid currentColor;margin-bottom:8px}
+.center .regime-korean-title{font-size:17px;font-weight:800;line-height:1.35;color:#fff;letter-spacing:-.03em;word-break:keep-all}
+.macro-detail-card{width:100%;margin-top:18px;background:rgba(13,23,33,.8);border:1px solid var(--line);border-radius:12px;padding:14px 16px;font-size:12px;line-height:1.6;color:var(--muted);word-break:keep-all}
 .macro-manual{display:grid;gap:10px}.mini{padding:11px 12px;background:#071018;border:1px solid var(--line);border-radius:9px;font-size:12px;color:var(--muted)}
 footer{border-top:1px solid rgba(255,255,255,.05);color:#596d76;text-align:center;padding:23px 4vw;font-size:11px}
 
@@ -206,9 +215,22 @@ footer{border-top:1px solid rgba(255,255,255,.05);color:#596d76;text-align:cente
   <div class="mcard"><div class="label">M2 성장 <span class="auto">AUTO</span></div><div class="mvalue" id="m2">5.8%</div><div class="mnote" id="m2Note">한국은행 ECOS</div></div>
   <div class="mcard"><div class="label">원/달러 <span class="manual">MANUAL</span></div><div class="mvalue"><input id="fx" value="1357.70" style="width:132px"></div></div>
  </div>
- <div class="macro-main">
-  <div class="panel macro-orb"><div class="orb"><div class="node n1">성장</div><div class="node n2">유동성</div><div class="node n3">환율</div><div class="node n4">물가</div><div class="center"><div><b id="regime">NEUTRAL</b><br><span id="regimeText">값을 조정하면 거시 국면이 갱신됩니다.</span></div></div></div></div>
-  <div class="panel"><div class="panel-title"><h3>수동 조정</h3><span class="manual">MANUAL CONTROL</span></div>
+<div class="macro-main">
+   <div class="panel macro-orb">
+     <div class="orb">
+       <div class="node n1">성장</div>
+       <div class="node n2">유동성</div>
+       <div class="node n3">환율</div>
+       <div class="node n4">물가</div>
+       <div class="center">
+         <b id="regime">NEUTRAL</b>
+         <div id="regimeKoreanTitle" class="regime-korean-title">전환기 중립 국면</div>
+       </div>
+     </div>
+     <div id="regimeText" class="macro-detail-card">
+       값을 조정하면 거시 국면 상세 진단과 자산 배분 전략이 갱신됩니다.
+     </div>
+   </div>  <div class="panel"><div class="panel-title"><h3>수동 조정</h3><span class="manual">MANUAL CONTROL</span></div>
    <div class="macro-manual">
     <div class="field"><label>기준금리 (%)</label><input id="rate2" value="3.00"></div>
     <div class="field"><label>물가상승률 (%)</label><input id="inflation2" value="3.10"></div>
@@ -786,26 +808,34 @@ function recalc() {
         caution = "원자재, 유가 연동 상품, 시클리컬(경기민감) 주식";
     }
 
-    // 화면 갱신
+// 중앙 원 및 하단 설명 화면 반영
     const regEl = document.getElementById('regime');
+    const korTitleEl = document.getElementById('regimeKoreanTitle');
     const txtEl = document.getElementById('regimeText');
     const statusEl = document.getElementById('macroStatus');
 
     if (regEl) {
         regEl.textContent = code;
         regEl.style.color = color;
+        regEl.style.borderColor = color;
+    }
+    if (korTitleEl) {
+        korTitleEl.textContent = title;
     }
     if (txtEl) {
-        txtEl.innerHTML = `<b>${title}</b><br><span style="font-size:11px; color:#8fa3b0;">${desc}</span>`;
+        txtEl.innerHTML = `
+            <div style="color:#fff; font-weight:700; margin-bottom:4px;">📊 상세 진단</div>
+            <div style="margin-bottom:8px; color:#c5d4db;">${desc}</div>
+            <div style="border-top:1px solid rgba(255,255,255,0.08); padding-top:8px;">
+                <span style="color:#53d9a5; font-weight:700;">👍 추천 자산:</span> ${favor}
+            </div>
+            <div style="margin-top:4px;">
+                <span style="color:#ff7382; font-weight:700;">⚠️ 유의 자산:</span> ${caution}
+            </div>
+        `;
     }
     if (statusEl) {
-        statusEl.innerHTML = `
-            <span style="color:${color}; font-weight:700;">● ${title}</span><br>
-            <span style="font-size:11px; line-height:1.6; display:block; margin-top:4px;">
-                <b>👍 추천 자산:</b> ${favor}<br>
-                <b>⚠️ 유의 자산:</b> ${caution}
-            </span>
-        `;
+        statusEl.innerHTML = `<span style="color:${color}; font-weight:700;">● ${title}</span> (${code})`;
     }
 }
 
