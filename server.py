@@ -155,3 +155,48 @@ if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8000))
     print(f"\n[서버 실행 완료] 포트 {port}에서 API 응답 대기 중...\n")
     app.run(host="0.0.0.0", port=port, debug=False)
+
+import urllib.parse
+import xml.etree.ElementTree as ET
+
+@app.route('/api/forecast', methods=['GET'])
+def get_forecast_news():
+    company = request.args.get('name', '').strip()
+    if not company:
+        return jsonify({"error": "기업명을 입력하세요"}), 400
+
+    try:
+        # 구글 공식 뉴스 RSS 피드에서 실제 실시간 언론사 기사 직접 크롤링
+        encoded_query = urllib.parse.quote(f"{company} 실적 전망")
+        rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=ko&gl=KR&ceid=KR:ko"
+        
+        headers = {'User-Agent': 'Mozilla/5.0'}
+        res = requests.get(rss_url, headers=headers, timeout=6)
+        root = ET.fromstring(res.content)
+        
+        real_news = []
+        for item in root.findall('.//item')[:3]: # 최신 3개 실제 기사
+            title = item.find('title').text if item.find('title') is not None else ""
+            pub_date = item.find('pubDate').text if item.find('pubDate') is not None else ""
+            source = item.find('source').text if item.find('source') is not None else "언론사"
+            
+            # 구글 뉴스 타이틀에서 " - 언론사명" 분리
+            if " - " in title:
+                parts = title.rsplit(" - ", 1)
+                title = parts[0]
+                source = parts[1]
+                
+            real_news.append({
+                "title": title,
+                "source": source,
+                "date": pub_date[:16] if pub_date else "최근",
+                "type": "실시간 뉴스"
+            })
+            
+        return jsonify({
+            "status": "success",
+            "company": company,
+            "news": real_news
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
