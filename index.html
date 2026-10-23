@@ -530,9 +530,10 @@ async function companySearch() {
         sizes.push(4.5);
     }
 
-    var trace1 = {
+var trace1 = {
         x: x_vals, y: y_vals, z: z_vals, text: labels,
         mode: 'markers+text',
+        hoverinfo: 'text', // 마우스 오버 시 숫자 좌표 숨기고 기업명만 깔끔하게 표시
         marker: {
             size: sizes,
             color: colors,
@@ -550,13 +551,15 @@ async function companySearch() {
         margin: { l: 0, r: 0, b: 0, t: 0 },
         scene: {
             xaxis: {
-                title: { text: '가격 괴리율(%)', font: { color: '#65e9f5', size: 12 } },
+                title: { text: '가격 괴리율', font: { color: '#65e9f5', size: 12 } },
                 backgroundcolor: "#08131c",
                 gridcolor: "#243c4d",
                 showbackground: true,
                 zerolinecolor: "#65e9f5",
                 zerolinewidth: 2,
-                tickfont: { color: "#8fa3b0", size: 9 }
+                tickvals: [-20, 0, 20],
+                ticktext: ['낮음 (저평가)', '보통 (적정)', '높음 (고평가)'],
+                tickfont: { color: "#8fa3b0", size: 10 }
             },
             yaxis: {
                 title: { text: '기업 재무점수', font: { color: '#65e9f5', size: 12 } },
@@ -565,7 +568,9 @@ async function companySearch() {
                 showbackground: true,
                 zerolinecolor: "#65e9f5",
                 zerolinewidth: 2,
-                tickfont: { color: "#8fa3b0", size: 9 }
+                tickvals: [45, 68, 90],
+                ticktext: ['낮음', '보통', '높음'],
+                tickfont: { color: "#8fa3b0", size: 10 }
             },
             zaxis: {
                 title: { text: '매크로 건전성', font: { color: '#65e9f5', size: 12 } },
@@ -574,7 +579,9 @@ async function companySearch() {
                 showbackground: true,
                 zerolinecolor: "#65e9f5",
                 zerolinewidth: 2,
-                tickfont: { color: "#8fa3b0", size: 9 }
+                tickvals: [50, 65, 80],
+                ticktext: ['낮음', '보통', '높음'],
+                tickfont: { color: "#8fa3b0", size: 10 }
             }
         }
     };
@@ -838,6 +845,92 @@ function calculateMBTI() {
 }
 
 calculateMBTI();
+
+// [05 매크로 탭] 금리 / 환율 변경 시 실시간 국면 판정 함수
+function updateMacroRegime() {
+    // 1. 슬라이더 또는 입력창 요소 탐색
+    const rateInput = document.getElementById('macroRate') || 
+                      document.getElementById('interestRate') || 
+                      document.querySelector('input[type="range"][name*="rate"]') ||
+                      document.querySelectorAll('#tab-macro input[type="range"]')[0];
+
+    const fxInput = document.getElementById('macroFx') || 
+                    document.getElementById('exchangeRate') || 
+                    document.querySelector('input[type="range"][name*="fx"]') ||
+                    document.querySelectorAll('#tab-macro input[type="range"]')[1];
+
+    if (!rateInput || !fxInput) return;
+
+    const rate = parseFloat(rateInput.value);
+    const fx = parseFloat(fxInput.value);
+
+    // 2. 슬라이더 옆 현재 수치 텍스트 업데이트
+    const rateText = rateInput.parentElement.querySelector('span') || document.getElementById('macroRateVal');
+    const fxText = fxInput.parentElement.querySelector('span') || document.getElementById('macroFxVal');
+    if (rateText) rateText.innerText = `${rate}%`;
+    if (fxText) fxText.innerText = `${fx.toLocaleString()}원`;
+
+    // 3. 4대 경제 국면 판정
+    let regimeTitle = "";
+    let regimeDesc = "";
+    let themeColor = "";
+    let favorAssets = "";
+    let cautionAssets = "";
+
+    if (rate >= 3.5 && fx >= 1350) {
+        regimeTitle = "스태그플레이션 / 고환율 긴축 국면";
+        regimeDesc = "고금리와 고환율이 동반되어 기업 조달 비용이 증가하고 내수 소비가 둔화되는 압박 구간입니다.";
+        themeColor = "#ef4444"; // 레드
+        favorAssets = "달러 현금, 원자재, 단기 채권, 고배당 가치주";
+        cautionAssets = "고PER 성장주, 부채비율 높은 한계기업";
+    } else if (rate >= 3.5 && fx < 1350) {
+        regimeTitle = "긴축 안정 / 밸류에이션 재평가 국면";
+        regimeDesc = "금리는 높으나 외환 시장이 안정되어 펀더멘털이 견고한 대형 우량주 중심의 방어적 흐름입니다.";
+        themeColor = "#f59e0b"; // 옐로우
+        favorAssets = "금융주, 현금성 자산, 중기 국채";
+        cautionAssets = "중소형 기술주, 부동산 PF 익스포저 자산";
+    } else if (rate < 3.5 && fx >= 1350) {
+        regimeTitle = "수출 주도형 반등 국면";
+        regimeDesc = "낮은 금리와 원화 약세(고환율)로 인해 수출 대기업의 가격 경쟁력 및 영업이익 개선이 기대됩니다.";
+        themeColor = "#3b82f6"; // 블루
+        favorAssets = "수출 대형주(반도체, 자동차), 해외 인덱스 ETF";
+        cautionAssets = "내수 유통주, 항공/음식료 등 수입 원자재 의존 기업";
+    } else {
+        regimeTitle = "골디락스 / 유동성 확장 국면";
+        regimeDesc = "저금리와 환율 안정으로 위험자산 선호 심리가 살아나며 성장주 랠리가 가능한 이상적 환경입니다.";
+        themeColor = "#10b981"; // 그린
+        favorAssets = "빅테크 성장주, 2차전지/AI, 리츠, 회사채";
+        cautionAssets = "단기 유동성 방어 자산";
+    }
+
+    // 4. 화면의 국면 카드 및 설명 텍스트 교체
+    const titleTarget = document.getElementById('macroRegimeTitle') || document.querySelector('.macro-regime-title') || document.querySelector('#tab-macro h3');
+    const descTarget = document.getElementById('macroRegimeDesc') || document.querySelector('.macro-regime-desc') || document.querySelector('#tab-macro p');
+
+    if (titleTarget) {
+        titleTarget.innerText = regimeTitle;
+        titleTarget.style.color = themeColor;
+    }
+    if (descTarget) {
+        descTarget.innerText = regimeDesc;
+    }
+
+    // 5. 추천 / 유의 자산 텍스트 교체
+    const favorTarget = document.getElementById('macroFavorAssets') || document.querySelector('.macro-favor-assets');
+    const cautionTarget = document.getElementById('macroCautionAssets') || document.querySelector('.macro-caution-assets');
+    if (favorTarget) favorTarget.innerText = favorAssets;
+    if (cautionTarget) cautionTarget.innerText = cautionAssets;
+}
+
+// 화면이 열릴 때 슬라이더 조작 이벤트 자동 바인딩
+document.addEventListener('DOMContentLoaded', () => {
+    const macroInputs = document.querySelectorAll('#tab-macro input[type="range"], input[id*="macro"], input[id*="Rate"], input[id*="Fx"]');
+    macroInputs.forEach(input => {
+        input.addEventListener('input', updateMacroRegime);
+    });
+    // 첫 로딩 시 한 번 자동 실행
+    setTimeout(updateMacroRegime, 100);
+});
 </script>
 </body>
 </html>
