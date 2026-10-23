@@ -1,13 +1,14 @@
 import io
 import os
 import zipfile
+import urllib.parse
 import xml.etree.ElementTree as ET
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 import requests
 
 app = Flask(__name__)
-CORS(app)  # 브라우저 Live Server의 CORS 차단 해제
+CORS(app)  # 브라우저 CORS 차단 해제
 
 DART_API_KEY = "8afa81b7d29ef20c109dfd3daff0fdccae2b911f"
 CORP_CODE_MAP = {}  # { "삼성전자": "00126380", ... }
@@ -48,6 +49,9 @@ def parse_amount(val_str):
     except ValueError:
         return 0
 
+# ----------------------------------------------------
+# 1. DART 공시 재무제표 조회 API
+# ----------------------------------------------------
 @app.route("/api/company", methods=["GET"])
 def get_company_dart():
     name = request.args.get("name", "").strip()
@@ -58,11 +62,10 @@ def get_company_dart():
     if not corp_code:
         return jsonify({"error": f"'{name}' 기업은 DART 공시 시스템에 등록되지 않았습니다."}), 404
 
-    # 2024년 사업보고서(11011) 우선 조회 -> 없으면 3분기보고서(11014)
     target_data = None
     target_year = ""
     
-    for yr in ["2025", "2024"]:
+    for yr in ["2026", "2025", "2024"]:
         for reprt in ["11011", "11014", "11012"]: 
             url = "https://opendart.fss.or.kr/api/fnlttSinglAcnt.json"
             params = {
@@ -71,19 +74,21 @@ def get_company_dart():
                 "bsns_year": yr,
                 "reprt_code": reprt
             }
-            res = requests.get(url, params=params, timeout=10)
-            data = res.json()
-            if data.get("status") == "000" and data.get("list"):
-                target_data = data["list"]
-                target_year = yr
-                break
+            try:
+                res = requests.get(url, params=params, timeout=10)
+                data = res.json()
+                if data.get("status") == "000" and data.get("list"):
+                    target_data = data["list"]
+                    target_year = yr
+                    break
+            except Exception:
+                continue
         if target_data:
             break
 
     if not target_data:
         return jsonify({"error": f"'{name}'의 정기보고서 재무제표를 DART에서 가져올 수 없습니다."}), 404
 
-    # 연결재무제표(CFS) 우선 추출
     cfs_rows = [r for r in target_data if r.get("fs_div") == "CFS"]
     dataset = cfs_rows if cfs_rows else target_data
     fs_name = "연결재무제표" if cfs_rows else "별도재무제표"
@@ -99,7 +104,7 @@ def get_company_dart():
         frmtrm = parse_amount(row.get("frmtrm_amount"))
 
         if any(keyword in acct for keyword in ["매출액", "수익(매출액)", "영업수익"]):
-            if rev_cur == 0:  # 상단 대표 매출액 우선 취득
+            if rev_cur == 0:
                 rev_cur = thstrm
                 rev_prev = frmtrm
         elif "영업이익" in acct:
@@ -150,15 +155,9 @@ def get_company_dart():
         }
     })
 
-if __name__ == "__main__":
-    init_corp_codes()
-    port = int(os.environ.get("PORT", 8000))
-    print(f"\n[서버 실행 완료] 포트 {port}에서 API 응답 대기 중...\n")
-    app.run(host="0.0.0.0", port=port, debug=False)
-
-import urllib.parse
-import xml.etree.ElementTree as ET
-
+# ----------------------------------------------------
+# 2. 구글 공식 뉴스 RSS 실시간 크롤링 API
+# ----------------------------------------------------
 @app.route('/api/forecast', methods=['GET'])
 def get_forecast_news():
     company = request.args.get('name', '').strip()
@@ -166,21 +165,19 @@ def get_forecast_news():
         return jsonify({"error": "기업명을 입력하세요"}), 400
 
     try:
-        # 구글 공식 뉴스 RSS 피드에서 실제 실시간 언론사 기사 직접 크롤링
         encoded_query = urllib.parse.quote(f"{company} 실적 전망")
         rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=ko&gl=KR&ceid=KR:ko"
         
         headers = {'User-Agent': 'Mozilla/5.0'}
-        res = requests.get(rss_url, headers=headers, timeout=6)
+        res = requests.get(rss_url, headers=headers, timeout=8)
         root = ET.fromstring(res.content)
         
         real_news = []
-        for item in root.findall('.//item')[:3]: # 최신 3개 실제 기사
+        for item in root.findall('.//item')[:3]:
             title = item.find('title').text if item.find('title') is not None else ""
             pub_date = item.find('pubDate').text if item.find('pubDate') is not None else ""
             source = item.find('source').text if item.find('source') is not None else "언론사"
             
-            # 구글 뉴스 타이틀에서 " - 언론사명" 분리
             if " - " in title:
                 parts = title.rsplit(" - ", 1)
                 title = parts[0]
@@ -200,3 +197,11 @@ def get_forecast_news():
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+# 서버가 임포트되거나 실행될 때 고유번호를 즉시 캐싱
+init_corp_codes()
+
+if __name__ == "__main__":
+    port = int(os.environ.get("PORT", 8000))
+    print(f"\n[서버 실행 완료] 포트 {port}에서 API 응답 대기 중...\n")
+    app.run(host="0.0.0.0", port=port, debug=False)
