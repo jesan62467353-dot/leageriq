@@ -453,7 +453,7 @@ async function companySearch() {
     // 1. 파이썬 로컬 프록시 서버(DART 공식 API) 호출
     let dartData = null;
     try {
-        const dartRes = await fetch(`http://127.0.0.1:8000/api/company?name=${encodeURIComponent(q)}`);
+        const dartRes = await fetch(`https://ledgeriq-backend-bqv5.onrender.com/api/company?name=${encodeURIComponent(q)}`);
         if (!dartRes.ok) {
             const errJson = await dartRes.json().catch(() => ({}));
             const errMsg = errJson.error || `'${q}' 기업의 공시 데이터를 DART에서 찾을 수 없습니다.`;
