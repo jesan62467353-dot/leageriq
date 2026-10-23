@@ -460,6 +460,12 @@ document.getElementById('makeEntryAi').onclick = async () => {
     btn.textContent = 'Gemini AI 회계 판단 실행';
     btn.disabled = false;
 };
+ document.getElementById('forecastSearch').onclick = forecastSearch;
+document.getElementById('forecastInput').onkeydown = (e) => {
+    if (e.key === 'Enter') {
+        forecastSearch();
+    }
+};
 
 // ====================================================
 // 4. 기업 재무 (실제 DART 공시 백엔드 연동)
