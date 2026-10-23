@@ -165,7 +165,7 @@ def get_forecast_news():
         return jsonify({"error": "기업명을 입력하세요"}), 400
 
     try:
-        encoded_query = urllib.parse.quote(f"{company} 실적 전망")
+        encoded_query = urllib.parse.quote(f"{company} 실적")
         rss_url = f"https://news.google.com/rss/search?q={encoded_query}&hl=ko&gl=KR&ceid=KR:ko"
         
         headers = {'User-Agent': 'Mozilla/5.0'}
@@ -173,10 +173,11 @@ def get_forecast_news():
         root = ET.fromstring(res.content)
         
         real_news = []
-        for item in root.findall('.//item')[:3]:
-            title = item.find('title').text if item.find('title') is not None else ""
-            pub_date = item.find('pubDate').text if item.find('pubDate') is not None else ""
-            source = item.find('source').text if item.find('source') is not None else "언론사"
+        for item in root.findall('.//item')[:4]:
+            title = item.findtext('title', '')
+            pub_date = item.findtext('pubDate', '')
+            link = item.findtext('link', '')
+            source = "언론사"
             
             if " - " in title:
                 parts = title.rsplit(" - ", 1)
@@ -187,7 +188,7 @@ def get_forecast_news():
                 "title": title,
                 "source": source,
                 "date": pub_date[:16] if pub_date else "최근",
-                "type": "실시간 뉴스"
+                "link": link
             })
             
         return jsonify({
