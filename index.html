@@ -730,7 +730,13 @@ function recalc() {
     document.getElementById('regime').textContent = regime;
     document.getElementById('regimeText').textContent = txt;
 }
-['rate2', 'inflation2', 'fx2'].forEach(id => document.getElementById(id).onchange = recalc);
+['rate2', 'inflation2', 'fx2'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) {
+        el.oninput = recalc;   // 숫자를 입력하는 순간 즉각 실시간 반영
+        el.onchange = recalc;
+    }
+});
 document.getElementById('recalc').onclick = recalc;
 recalc();
 
