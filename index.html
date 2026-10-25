@@ -412,10 +412,36 @@ async function handleReceipt(file) {
         });
         extractedOcrText = out.data.text || '';
         
-        const compact = extractedOcrText.replace(/,/g, '');
-        const nums = [...compact.matchAll(/\b\d{3,8}\b/g)].map(x => Number(x[0])).filter(x => x > 1000);
-        const amount = nums.length ? Math.max(...nums) : "";
-        if (amount) document.getElementById('amount').value = amount;
+       // 1. 합계, 결제금액, 승인금액 키워드 라인 최우선 탐색
+        let detectedAmount = "";
+        const lines = extractedOcrText.split('\n');
+        const totalKeywords = ["합계", "결제금액", "승인금액", "받을금액", "합 계", "총액", "승인"];
+
+        for (const line of lines) {
+            if (totalKeywords.some(kw => line.includes(kw))) {
+                const lineNums = line.replace(/,/g, '').match(/\b\d{3,8}\b/g);
+                if (lineNums) {
+                    const valid = lineNums.map(Number).filter(n => n >= 1000 && n <= 100000000);
+                    if (valid.length > 0) {
+                        detectedAmount = valid[valid.length - 1]; // 해당 줄의 마지막 금액 취득
+                        break;
+                    }
+                }
+            }
+        }
+
+        // 2. 키워드 라인 매칭 실패 시: 승인번호(8자리 이상) 배제하고 영수증 하단부 금액 취득
+        if (!detectedAmount) {
+            const compact = extractedOcrText.replace(/,/g, '');
+            const nums = [...compact.matchAll(/\b\d{4,7}\b/g)]
+                .map(x => Number(x[0]))
+                .filter(x => x >= 1000 && x < 10000000);
+            detectedAmount = nums.length ? nums[nums.length - 1] : "";
+        }
+
+        if (detectedAmount) {
+            document.getElementById('amount').value = detectedAmount;
+        }
         
         document.getElementById('ocrConfidence').textContent = `OCR 신뢰도 ${Math.round((out.data.confidence || 0))}%`;
         setOcrStatus('OCR 완료. 금액 확인 후 [Gemini AI 회계 판단 실행]을 클릭하세요.');
@@ -432,15 +458,20 @@ document.getElementById('makeEntryAi').onclick = async () => {
     btn.innerHTML = '<span class="loader"></span> AI 분석 중...';
     btn.disabled = true;
 
-    const prompt = `
-    다음 영수증 내용과 금액, 힌트를 바탕으로 가장 적절한 차변/대변 회계 분개를 JSON 형식으로만 작성하세요.
-    {"account": "복리후생비", "debit": ${amount}, "credit": ${amount}, "reason": "직원 식대 지출로 판단"}
-    
-    - 영수증 내용: ${extractedOcrText}
+  const prompt = `
+    다음 영수증 텍스트와 힌트를 분석하여 실제 '최종 결제금액(합계/승인금액)'을 찾아내고, 최적의 차변/대변 회계 분개를 JSON 형식으로만 작성하세요.
+    현재 입력창의 금액(${amount})이 영수증 본문의 실제 결제금액(합계)과 서로 다르다면, 영수증 텍스트에 인쇄된 실제 최종 합계 금액을 최우선으로 debit과 credit에 반영하세요.
+
+    반드시 다음 JSON 규격으로만 응답하세요:
+    {"account": "복리후생비", "debit": 45000, "credit": 45000, "reason": "직원 식대 지출로 판단"}
+
+    - 영수증 내용:
+    ${extractedOcrText}
     - 추가 힌트: ${hint}
     `;
 
     let data = await callGemini(prompt, true);
+    if (data && data.debit) document.getElementById('amount').value = data.debit; // AI가 찾은 진짜 금액으로 입력창 자동 동기화
     if (!data || !data.account) {
         data = {
             account: hint.includes("접대") ? "접대비(기업업무추진비)" : "복리후생비",
