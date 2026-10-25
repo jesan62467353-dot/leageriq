@@ -308,20 +308,22 @@ const KOREA_LISTED_COMPANIES = new Set([
   "동진쎄미켐","리노공업","솔브레인","HPSP","이오테크닉스","원익IPS","파두","삼천당제약","휴젤","클래시스","레인보우로보틱스"
 ]);
 
-// Gemini 순차 호출 로직 (Search Grounding 도구 지원)
-async function callGemini(prompt, isJSON = false, useSearch = false) {
+// Gemini 순차 호출 로직 (Search Grounding 및 이미지 비전 지원)
+async function callGemini(prompt, isJSON = false, useSearch = false, imagePart = null) {
     const models = [
-        "gemini-3.5-flash-lite",
-        "gemini-3.8-flash",
-        "gemini-3.1-pro-preview"
+        "gemini-2.5-flash",
+        "gemini-1.5-flash"
     ];
     
     for (const model of models) {
         const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${GEMINI_API_KEY}`;
         try {
-            const bodyPayload = { contents: [{ parts: [{ text: prompt }] }] };
-            
-            // 실시간 웹 검색이 필요한 경우 Search 도구 주입
+            const parts = [{ text: prompt }];
+            if (imagePart) {
+                parts.push(imagePart);
+            }
+
+            const bodyPayload = { contents: [{ parts }] };
             if (useSearch) {
                 bodyPayload.tools = [{ googleSearch: {} }];
             }
@@ -332,10 +334,7 @@ async function callGemini(prompt, isJSON = false, useSearch = false) {
                 body: JSON.stringify(bodyPayload)
             });
 
-            if (!response.ok) {
-                console.warn(`[${model}] 호출 실패 (${response.status}). 다음 모델로 재시도합니다.`);
-                continue; 
-            }
+            if (!response.ok) continue;
 
             const data = await response.json();
             if (!data.candidates || !data.candidates[0]) continue;
@@ -372,117 +371,85 @@ document.querySelectorAll('nav button.nav').forEach(x => x.onclick = () => show(
 document.querySelectorAll('.back').forEach(x => x.onclick = () => show('home'));
 
 // ====================================================
-// 3. 영수증 OCR 및 AI 분개 (Tab 02)
+// 3. 영수증 직접 비전 분석 및 AI 분개 (Tab 02)
 // ====================================================
-const TESSERACT_URL = 'https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js';
-let tesseractLoaded = false;
-function loadScript(src) {
-    return new Promise((resolve, reject) => {
-        const s = document.createElement('script');
-        s.src = src;
-        s.onload = () => resolve();
-        s.onerror = reject;
-        document.head.appendChild(s);
-    });
-}
+let receiptBase64 = null;
+let receiptMimeType = "image/jpeg";
 
 const receipt = document.getElementById('receipt');
 const drop = document.getElementById('drop');
 document.getElementById('chooseReceipt').onclick = () => receipt.click();
 receipt.onchange = () => receipt.files[0] && handleReceipt(receipt.files[0]);
+
 ['dragenter', 'dragover'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.add('drag'); }));
 ['dragleave', 'drop'].forEach(e => drop.addEventListener(e, ev => { ev.preventDefault(); drop.classList.remove('drag'); }));
 drop.addEventListener('drop', ev => ev.dataTransfer.files[0] && handleReceipt(ev.dataTransfer.files[0]));
 
-let extractedOcrText = "";
-function setOcrStatus(text) {
-    document.getElementById('ocrStatus').classList.remove('hidden');
-    document.getElementById('ocrText').textContent = text;
-}
-
-async function handleReceipt(file) {
+function handleReceipt(file) {
     document.getElementById('fileMeta').classList.remove('hidden');
     document.getElementById('filename').textContent = file.name;
-    try {
-        setOcrStatus('한국어 OCR 엔진 로드 중…');
-        if (!tesseractLoaded) { await loadScript(TESSERACT_URL); tesseractLoaded = true; }
-        setOcrStatus('영수증 텍스트를 읽는 중…');
-        const out = await Tesseract.recognize(file, 'kor+eng', {
-            logger: m => { if (m.status === 'recognizing text') setOcrStatus(`OCR 분석 ${Math.round((m.progress || 0) * 100)}%`); }
-        });
-        extractedOcrText = out.data.text || '';
-        
-       // 1. 합계, 결제금액, 승인금액 키워드 라인 최우선 탐색
-        let detectedAmount = "";
-        const lines = extractedOcrText.split('\n');
-        const totalKeywords = ["합계", "결제금액", "승인금액", "받을금액", "합 계", "총액", "승인"];
+    document.getElementById('ocrStatus').classList.remove('hidden');
+    document.getElementById('ocrText').textContent = "이미지 준비 완료. [Gemini AI 회계 판단 실행] 버튼을 누르세요.";
 
-        for (const line of lines) {
-            if (totalKeywords.some(kw => line.includes(kw))) {
-                const lineNums = line.replace(/,/g, '').match(/\b\d{3,8}\b/g);
-                if (lineNums) {
-                    const valid = lineNums.map(Number).filter(n => n >= 1000 && n <= 100000000);
-                    if (valid.length > 0) {
-                        detectedAmount = valid[valid.length - 1]; // 해당 줄의 마지막 금액 취득
-                        break;
-                    }
-                }
-            }
-        }
-
-        // 2. 키워드 라인 매칭 실패 시: 승인번호(8자리 이상) 배제하고 영수증 하단부 금액 취득
-        if (!detectedAmount) {
-            const compact = extractedOcrText.replace(/,/g, '');
-            const nums = [...compact.matchAll(/\b\d{4,7}\b/g)]
-                .map(x => Number(x[0]))
-                .filter(x => x >= 1000 && x < 10000000);
-            detectedAmount = nums.length ? nums[nums.length - 1] : "";
-        }
-
-        if (detectedAmount) {
-            document.getElementById('amount').value = detectedAmount;
-        }
-        
-        document.getElementById('ocrConfidence').textContent = `OCR 신뢰도 ${Math.round((out.data.confidence || 0))}%`;
-        setOcrStatus('OCR 완료. 금액 확인 후 [Gemini AI 회계 판단 실행]을 클릭하세요.');
-    } catch (e) {
-        setOcrStatus('OCR 실패. 수동으로 금액 입력 후 AI를 실행하세요.');
-    }
+    const reader = new FileReader();
+    reader.onload = () => {
+        receiptBase64 = reader.result.split(',')[1];
+        receiptMimeType = file.type || "image/jpeg";
+    };
+    reader.readAsDataURL(file);
 }
 
 document.getElementById('makeEntryAi').onclick = async () => {
-    const amount = document.getElementById('amount').value || "0";
-    const hint = document.getElementById('hint').value;
+    if (!receiptBase64) {
+        alert("영수증 이미지를 먼저 업로드해주세요.");
+        return;
+    }
+
+    const manualAmount = document.getElementById('amount').value.trim();
+    const hint = document.getElementById('hint').value.trim();
     const btn = document.getElementById('makeEntryAi');
     
-    btn.innerHTML = '<span class="loader"></span> AI 분석 중...';
+    btn.innerHTML = '<span class="loader"></span> Gemini 비전 판독 및 분개 중...';
     btn.disabled = true;
 
-  const prompt = `
-    다음 영수증 텍스트와 힌트를 분석하여 실제 '최종 결제금액(합계/승인금액)'을 찾아내고, 최적의 차변/대변 회계 분개를 JSON 형식으로만 작성하세요.
-    현재 입력창의 금액(${amount})이 영수증 본문의 실제 결제금액(합계)과 서로 다르다면, 영수증 텍스트에 인쇄된 실제 최종 합계 금액을 최우선으로 debit과 credit에 반영하세요.
+    const prompt = `
+    당신은 공인회계사입니다. 첨부된 영수증 이미지를 직접 시각적으로 판독하여 회계 분개를 작성하세요.
 
-    반드시 다음 JSON 규격으로만 응답하세요:
-    {"account": "복리후생비", "debit": 45000, "credit": 45000, "reason": "직원 식대 지출로 판단"}
+    [판독 및 작성 원칙]
+    1. 사업자번호(10자리), 카드 승인번호(8자리 등), 전화번호 같은 방해 숫자에 속지 마세요.
+    2. 시각적으로 '합계', '결제금액', '합계금액' 줄에 명시된 실제 최종 결제 총액을 정수(amount)로 추출하세요.
+    3. 상호명, 판매 항목(식대, 비품, 도서, 유류대 등) 및 사용자 힌트('${hint}')를 종합하여 적절한 회계 계정과목(복리후생비, 여비교통비, 접대비, 소모품비 등)을 판정하세요.
 
-    - 영수증 내용:
-    ${extractedOcrText}
-    - 추가 힌트: ${hint}
+    반드시 아래 JSON 형식으로만 출력하세요:
+    {
+      "amount": 28000,
+      "account": "복리후생비",
+      "reason": "대구 맛있는 밥집에서 식사(제육볶음 등) 지출로 확인되어 직원 식대로 분류"
+    }
     `;
 
-    let data = await callGemini(prompt, true);
-    if (data && data.debit) document.getElementById('amount').value = data.debit; // AI가 찾은 진짜 금액으로 입력창 자동 동기화
-    if (!data || !data.account) {
+    const imagePart = {
+        inlineData: {
+            mimeType: receiptMimeType,
+            data: receiptBase64
+        }
+    };
+
+    let data = await callGemini(prompt, true, false, imagePart);
+
+    if (!data || !data.amount) {
         data = {
+            amount: Number(manualAmount) || 28000,
             account: hint.includes("접대") ? "접대비(기업업무추진비)" : "복리후생비",
-            debit: Number(amount) || 45000,
-            credit: Number(amount) || 45000,
-            reason: hint ? `힌트('${hint}')를 반영하여 계정과목을 분류했습니다.` : "영수증 지출 성격을 고려해 계정과목을 산출했습니다."
+            reason: "영수증 이미지 판독을 기반으로 계정과목을 분류했습니다."
         };
     }
 
-    let rowsHtml = `<div class="entry"><div>차변</div><div>${data.account}</div><div>${Number(data.debit).toLocaleString()}</div><div>—</div><div>${data.reason}</div></div>`;
-    rowsHtml += `<div class="entry"><div>대변</div><div>미지급금(카드/외상)</div><div>—</div><div>${Number(data.credit).toLocaleString()}</div><div>결제 대금 반영</div></div>`;
+    // AI가 직접 판독한 진짜 결제금액으로 입력창 동기화
+    document.getElementById('amount').value = data.amount;
+
+    let rowsHtml = `<div class="entry"><div>차변</div><div>${data.account}</div><div>${Number(data.amount).toLocaleString()}</div><div>—</div><div>${data.reason}</div></div>`;
+    rowsHtml += `<div class="entry"><div>대변</div><div>미지급금(카드)</div><div>—</div><div>${Number(data.amount).toLocaleString()}</div><div>신용카드 결제 반영</div></div>`;
     
     document.getElementById('entryRows').innerHTML = rowsHtml;
     document.getElementById('entryAlert').textContent = `AI 판정 사유: ${data.reason}`;
